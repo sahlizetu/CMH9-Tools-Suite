@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DNS Include Checker</title>
+  <style>
+    :root{
+      --bg:#f4f7fb; --card:#ffffff; --text:#172033; --muted:#64748b;
+      --green:#00a878; --red:#ef4444; --blue:#4f8ef7; --orange:#f59e0b; --purple:#8b5cf6;
+      --border:#d9e2ef;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text);padding:20px}
+    .container{max-width:1600px;margin:auto}
+    h1{margin:0 0 8px;font-size:36px}
+    p{margin:0 0 22px;color:var(--muted);font-size:16px}
+    
+    /* Grid 1 colonne (pleine largeur) */
+    .grid{display:grid;grid-template-columns:1fr;gap:18px}
+    
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    label{display:block;font-weight:700;margin-bottom:8px;font-size:16px}
+    
+    /* Zone 1 textarea grande */
+    textarea{width:100%;min-height:200px;resize:vertical;border:1px solid var(--border);border-radius:10px;padding:14px;font-family:Consolas,monospace;font-size:16px;line-height:1.8;outline:none}
+    textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(79,142,247,.12)}
+    #zone1{min-height:200px;font-size:16px}
+    
+    .options{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0;align-items:center}
+    button{border:none;border-radius:10px;padding:14px 22px;font-weight:700;cursor:pointer;font-size:15px}
+    .btn-main{background:var(--blue);color:white}
+    .btn-clear{background:#e2e8f0;color:#334155}
+    .btn-checking{background:var(--orange);color:white;cursor:wait}
+    .btn-copy-group{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn-copy-small{background:#e2e8f0;color:#334155;padding:10px 18px;font-size:13px;border:none;border-radius:8px;cursor:pointer;font-weight:600}
+    .btn-copy-small:hover{background:#cbd5e1}
+    .btn-copy-small.all{background:var(--purple);color:white}
+    .btn-copy-small.valid{background:var(--green);color:white}
+    .btn-copy-small.invalid{background:var(--red);color:white}
+    
+    .stats{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+    .pill{background:white;border:1px solid var(--border);border-radius:999px;padding:8px 16px;font-size:15px;color:var(--muted)}
+    .pill b{color:var(--text)}
+    
+    .output-card{margin-top:18px}
+    .hint{font-size:13px;color:var(--muted);margin-top:8px}
+    .footer{text-align:center;color:var(--muted);font-size:14px;margin:22px 0 4px;font-weight:600}
+    
+    /* Result table grande */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: Consolas, monospace;
+      font-size: 15px;
+      margin-top: 10px;
+    }
+    .result-table th {
+      background: #e2e8f0;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      font-size: 15px;
+    }
+    .result-table td {
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      vertical-align: top;
+      font-size: 14px;
+    }
+    .result-table tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .result-table tr:hover {
+      background: #e8edf5;
+    }
+    .valid { color: var(--green); font-weight: 700; font-size: 15px; }
+    .invalid { color: var(--red); font-weight: 700; font-size: 15px; }
+    .error { color: var(--orange); font-weight: 700; font-size: 15px; }
+    
+    .record-type { 
+      display: inline-block;
+      background: #e2e8f0;
+      padding: 2px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .record-type.cname { background: #bfdbfe; color: #1e40af; }
+    .record-type.txt { background: #fde68a; color: #92400e; }
+    .record-type.mx { background: #a7f3d0; color: #065f46; }
+    .record-type.ns { background: #fbcfe8; color: #9d174d; }
+    .record-type.soa { background: #e9d5ff; color: #6b21a8; }
+    .record-type.a { background: #fecaca; color: #991b1b; }
+    .record-type.aaaa { background: #fed7aa; color: #9a3412; }
+    
+    .format-error { 
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+      font-weight: 700;
+    }
+    
+    #outputContainer {
+      overflow-x: auto;
+      max-height: 700px;
+      overflow-y: auto;
+    }
+    
+    @media(max-width:800px){
+      body{padding:10px}
+      .container{max-width:100%}
+      .result-table{font-size:13px}
+      .result-table th,.result-table td{padding:6px 8px}
+      #zone1{min-height:150px}
+      .btn-copy-small{padding:6px 10px;font-size:11px}
+      button{padding:10px 14px;font-size:13px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 DNS Validation Checker CMH9</h1>
+    <p>Check if domain CNAME, TXT, MX, NS, SOA, A, or AAAA records match the include domains.</p>
+
+    <!-- Zone 1 pleine largeur -->
+    <div class="grid">
+      <div class="card">
+        <label for="zone1">📝 Zone 1 — Domains to Check</label>
+        <textarea id="zone1" spellcheck="false" placeholder="domain_principal,domain_includ_1,domain_includ_2"></textarea>
+        <div class="hint">📌 Format: <strong>domain_principal,domain_includ_1,domain_includ_2</strong> (comma separated)</div>
+      </div>
+    </div>
+
+    <div class="options">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-right:auto;">
+        <label class="option"><input type="checkbox" id="checkCNAME" checked /> CNAME</label>
+        <label class="option"><input type="checkbox" id="checkTXT" checked /> TXT</label>
+        <label class="option"><input type="checkbox" id="checkMX" checked /> MX</label>
+        <label class="option"><input type="checkbox" id="checkNS" checked /> NS</label>
+        <label class="option"><input type="checkbox" id="checkSOA" checked /> SOA</label>
+        <label class="option"><input type="checkbox" id="checkA" checked /> A</label>
+        <label class="option"><input type="checkbox" id="checkAAAA" checked /> AAAA</label>
+      </div>
+      <button class="btn-main" id="checkBtn" onclick="checkDNS()">🚀 Check DNS</button>
+      <button class="btn-clear" onclick="clearAll()">🗑️ Clear</button>
+    </div>
+
+    <div class="stats">
+      <div class="pill">📊 Lines to Check : <b id="statLines">0</b></div>
+      <div class="pill">✅ Valid : <b id="statValid">0</b></div>
+      <div class="pill">❌ Invalid : <b id="statInvalid">0</b></div>
+      <div class="pill">⚠️ Errors : <b id="statErrors">0</b></div>
+      <div class="pill">📐 Format Errors : <b id="statFormatErrors">0</b></div>
+    </div>
+
+    <div class="card output-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <label for="output" style="margin:0;font-size:16px;">📋 Output — Results</label>
+        <div class="btn-copy-group">
+          <button class="btn-copy-small all" onclick="copyOutput('all')">📋 Copy All Lines</button>
+          <button class="btn-copy-small valid" onclick="copyOutput('valid')">✅ Copy Valid Lines</button>
+          <button class="btn-copy-small invalid" onclick="copyOutput('invalid')">❌ Copy Invalid Lines</button>
+        </div>
+      </div>
+      <div id="outputContainer" style="overflow-x:auto;max-height:700px;overflow-y:auto;"></div>
+      <textarea id="output" spellcheck="false" readonly style="display:none;"></textarea>
+      <div class="hint">🔍 Performs DNS lookup (CNAME, TXT, MX, NS, SOA, A, AAAA) for each domain_principal and checks if records contain any include domain.</div>
+    </div>
+
+    <div class="footer">Created by CMH9 admin</div>
+  </div>
+
+  <script>
+    // Store results globally for copy functions
+    let globalResults = [];
+
+    function getLines(id){
+      return document.getElementById(id).value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    }
+
+    function normalizeDomain(v){
+      return v.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '').replace(/\.$/, '');
+    }
+
+    // DNS lookup using Cloudflare DNS API
+    async function dnsLookup(domain, type = 'CNAME') {
+      try {
+        const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${type}`;
+        const response = await fetch(url, {
+          headers: { 'Accept': 'application/dns-json' }
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        return data.Answer || [];
+      } catch (error) {
+        console.error(`DNS lookup error for ${domain}:`, error);
+        return [];
+      }
+    }
+
+    // Check if a value contains any of the include domains
+    function containsInclude(value, includes) {
+      if (!value) return { found: false, matchedInclude: null };
+      const normalized = normalizeDomain(value);
+      
+      for (const include of includes) {
+        const inc = normalizeDomain(include);
+        if (normalized === inc || 
+            normalized.endsWith('.' + inc) || 
+            normalized.includes(inc)) {
+          return { found: true, matchedInclude: include };
+        }
+      }
+      return { found: false, matchedInclude: null };
+    }
+
+    function getRecordTypeClass(type) {
+      const map = {
+        'CNAME': 'cname',
+        'TXT': 'txt',
+        'MX': 'mx',
+        'NS': 'ns',
+        'SOA': 'soa',
+        'A': 'a',
+        'AAAA': 'aaaa'
+      };
+      return map[type] || '';
+    }
+
+    // Validate line format
+    function validateLineFormat(line) {
+      if (!line || line.trim() === '') {
+        return { valid: false, error: 'Empty line' };
+      }
+      
+      if (!line.includes(',')) {
+        return { valid: false, error: 'No comma separator found (use: domain,include1,include2)' };
+      }
+      
+      const parts = line.split(',').map(p => p.trim()).filter(Boolean);
+      
+      if (parts.length < 1) {
+        return { valid: false, error: 'Empty domain' };
+      }
+      
+      if (parts.length < 2) {
+        return { valid: false, error: 'Need at least one include domain (format: domain,include1,include2)' };
+      }
+      
+      const emptyParts = line.split(',').some(p => p.trim() === '');
+      if (emptyParts) {
+        return { valid: false, error: 'Empty value between commas (e.g., domain,,include2)' };
+      }
+      
+      return { valid: true, parts: parts };
+    }
+
+    async function checkDNS() {
+      const lines = getLines('zone1');
+
+      if (!lines.length) {
+        alert('⚠️ Please fill Zone 1 with domains to check.');
+        return;
+      }
+
+      const checkTypes = {
+        CNAME: document.getElementById('checkCNAME').checked,
+        TXT: document.getElementById('checkTXT').checked,
+        MX: document.getElementById('checkMX').checked,
+        NS: document.getElementById('checkNS').checked,
+        SOA: document.getElementById('checkSOA').checked,
+        A: document.getElementById('checkA').checked,
+        AAAA: document.getElementById('checkAAAA').checked
+      };
+
+      const enabledTypes = Object.keys(checkTypes).filter(k => checkTypes[k]);
+      if (!enabledTypes.length) {
+        alert('⚠️ Please select at least one record type to check.');
+        return;
+      }
+
+      const checkBtn = document.getElementById('checkBtn');
+      checkBtn.disabled = true;
+      checkBtn.textContent = '⏳ Checking...';
+      checkBtn.className = 'btn-checking';
+
+      const results = [];
+      globalResults = [];
+      let validCount = 0;
+      let invalidCount = 0;
+      let errorCount = 0;
+      let formatErrorCount = 0;
+      let lineNumber = 0;
+
+      for (const line of lines) {
+        lineNumber++;
+        
+        const validation = validateLineFormat(line);
+        
+        if (!validation.valid) {
+          formatErrorCount++;
+          const result = {
+            line: lineNumber,
+            domain: '⚠️ INVALID FORMAT',
+            type: '-',
+            ttl: '-',
+            answer: `❌ ${validation.error}`,
+            status: '⚠️ FORMAT ERROR',
+            statusClass: 'error',
+            valid: false,
+            isFormatError: true,
+            rawLine: line
+          };
+          results.push(result);
+          globalResults.push(result);
+          continue;
+        }
+
+        const parts = validation.parts;
+        const principalDomain = normalizeDomain(parts[0]);
+        const lineIncludes = parts.slice(1).map(normalizeDomain);
+        const uniqueIncludes = [...new Set(lineIncludes)];
+
+        try {
+          let allRecords = [];
+
+          for (const type of enabledTypes) {
+            const records = await dnsLookup(principalDomain, type);
+            for (const r of records) {
+              let data = r.data;
+              if (type === 'TXT' && typeof data === 'string') {
+                data = data.replace(/"/g, '');
+              }
+              allRecords.push({ type: type, ttl: r.TTL || '-', data: data });
+            }
+          }
+
+          let isValid = false;
+          let matchedValue = '';
+          let matchedInclude = '';
+          let matchedType = '-';
+          let matchedTTL = '-';
+
+          for (const record of allRecords) {
+            const result = containsInclude(record.data, uniqueIncludes);
+            if (result.found) {
+              isValid = true;
+              matchedValue = record.data;
+              matchedInclude = result.matchedInclude;
+              matchedType = record.type;
+              matchedTTL = record.ttl;
+              break;
+            }
+          }
+
+          let answer = '';
+          let typeDisplay = '';
+          let ttlDisplay = '';
+
+          if (allRecords.length > 0) {
+            if (isValid) {
+              answer = matchedValue;
+              typeDisplay = matchedType;
+              ttlDisplay = matchedTTL;
+            } else {
+              const recordsStr = allRecords.map(r => `${r.type}: ${r.data}`).join('; ');
+              answer = recordsStr;
+              typeDisplay = allRecords.map(r => r.type).join(', ');
+              ttlDisplay = allRecords[0].ttl;
+            }
+          } else {
+            answer = '📭 No record found';
+            typeDisplay = '-';
+            ttlDisplay = '-';
+          }
+
+          const status = isValid ? '✅ VALID' : '❌ INVALID';
+          const statusClass = isValid ? 'valid' : 'invalid';
+
+          if (isValid) validCount++;
+          else invalidCount++;
+
+          const result = {
+            line: lineNumber,
+            domain: principalDomain,
+            type: typeDisplay,
+            ttl: ttlDisplay,
+            answer: answer,
+            status: status,
+            statusClass: statusClass,
+            valid: isValid,
+            includes: uniqueIncludes,
+            matchedInclude: matchedInclude,
+            allRecords: allRecords,
+            isFormatError: false,
+            rawLine: line
+          };
+          results.push(result);
+          globalResults.push(result);
+
+        } catch (error) {
+          errorCount++;
+          const result = {
+            line: lineNumber,
+            domain: principalDomain,
+            type: '-',
+            ttl: '-',
+            answer: `⚠️ Error: ${error.message}`,
+            status: '⚠️ ERROR',
+            statusClass: 'error',
+            valid: false,
+            isFormatError: false,
+            rawLine: line
+          };
+          results.push(result);
+          globalResults.push(result);
+        }
+      }
+
+      checkBtn.disabled = false;
+      checkBtn.textContent = '🚀 Check DNS';
+      checkBtn.className = 'btn-main';
+
+      // Generate HTML table
+      let html = `<table class="result-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>🌐 Domain</th>
+            <th>📋 Type</th>
+            <th>⏱️ TTL</th>
+            <th>📝 Answer</th>
+            <th>📊 Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      for (const r of results) {
+        let answerDisplay = r.answer;
+        let rowClass = '';
+        
+        if (r.isFormatError) {
+          rowClass = 'format-error';
+          answerDisplay = `⚠️ ${r.answer}`;
+        } else if (r.allRecords && r.allRecords.length > 0 && !r.valid) {
+          answerDisplay = r.allRecords.map(rec => 
+            `<span class="record-type ${getRecordTypeClass(rec.type)}">${rec.type}</span> ${rec.data}`
+          ).join('<br>');
+        } else if (r.valid) {
+          answerDisplay = `<span class="record-type ${getRecordTypeClass(r.type)}">${r.type}</span> ${r.answer}`;
+        }
+        
+        html += `<tr class="${rowClass}">
+          <td>${r.line}</td>
+          <td><strong>${r.domain}</strong></td>
+          <td>${r.type}</td>
+          <td>${r.ttl}</td>
+          <td>${answerDisplay}</td>
+          <td class="${r.statusClass}">${r.status}</td>
+        </tr>`;
+      }
+
+      html += `</tbody></table>`;
+
+      document.getElementById('outputContainer').innerHTML = html;
+      
+      document.getElementById('statLines').textContent = lines.length;
+      document.getElementById('statValid').textContent = validCount;
+      document.getElementById('statInvalid').textContent = invalidCount;
+      document.getElementById('statErrors').textContent = errorCount;
+      document.getElementById('statFormatErrors').textContent = formatErrorCount;
+    }
+
+    function copyOutput(filter = 'all') {
+      const results = globalResults;
+      if (!results.length) return alert('⚠️ No results to copy. Run Check DNS first.');
+
+      let lines = [];
+
+      if (filter === 'all') {
+        lines = results.map(r => r.rawLine);
+      } 
+      else if (filter === 'valid') {
+        lines = results
+          .filter(r => r.valid === true && !r.isFormatError)
+          .map(r => r.rawLine);
+      }
+      else if (filter === 'invalid') {
+        lines = results
+          .filter(r => r.valid === false && !r.isFormatError)
+          .map(r => r.rawLine);
+      }
+
+      if (!lines.length) {
+        alert(`⚠️ No ${filter} lines to copy.`);
+        return;
+      }
+
+      const text = lines.join('\n');
+
+      navigator.clipboard.writeText(text).then(() => {
+        alert(`✅ ${lines.length} ${filter} lines copied!`);
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert(`✅ ${lines.length} ${filter} lines copied!`);
+      });
+    }
+
+    function clearAll(){
+      document.getElementById('zone1').value = '';
+      document.getElementById('outputContainer').innerHTML = '';
+      document.getElementById('statLines').textContent = '0';
+      document.getElementById('statValid').textContent = '0';
+      document.getElementById('statInvalid').textContent = '0';
+      document.getElementById('statErrors').textContent = '0';
+      document.getElementById('statFormatErrors').textContent = '0';
+      globalResults = [];
+    }
+
+    // Zone 1 vide
+    document.getElementById('zone1').value = '';
+  </script>
+</body>
+</html>
